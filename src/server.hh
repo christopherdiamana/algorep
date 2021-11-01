@@ -1,39 +1,61 @@
 #pragma once
 
+#include <iostream>
+#include <fstream>
+
+#define MIN_TIMEOUT 100
+#define MAX_TIMEOUT 400
+#define INTIAL_HARTBEAT 50
 
 
 class Server
 {
+
     public:
+        enum Status { Follower, Candidate, Leader };
+        /*** CONSTRUCTOR ***/
+        Server(unsigned long rank, unsigned long size);
 
-        //Champs
-        unsigned long rank;
-        unsigned long size;
-
-        enum Status {Folower, Candidate, Leader};
-
-        // 0 signifie aucun leader; Sinon spécifie le rang du leader.
-        unsigned long leaderRank = 0;
-
-        //Constructeur
-        Server(unsigned long rank, unsigned long size) : rank(rank), size(size), status(Folower) {}
-
-        //Méthodes
-        bool vote(unsigned long rank);
-
+        /*** METHODS ***/
+        bool vote(unsigned long serverRank);
         Status getStatus();
+        int getLeader();
+        void setTimeout();
+
 
     private:
+        /*** ATTRIBUTES  ***/
 
-        //Champs
-        Status status;
+        unsigned long rank;
+        // Size of the system
+        unsigned long size;
+        enum Status { Follower, Candidate, Leader };
+        // Current Epoch
+        int currentTerm;
+        // The timeout for an epoch
+        int timeout;
+        // The timeout for the hearbeat
+        int heartbeatTimeout;
 
+        // 0 signifie aucun leader; Sinon spécifie le rang du leader.
+        unsigned long leaderRank;
 
-        //Méthodes
+        int votedFor;
+        // The index of log entry
+        int commitIndex;
+        // RAM log storage
+        std::string currentLog
+        // Storage emplacement in the hard drive.
+        ofstream log;
+
+        /*** METHODS ***/
+
+        void toCandidate();
+        void toLeader();
+        void toFollower();
         void heartbeat();
-
         bool requestVote();
-
+        void setLog()
         void setStatus(int statusIndex);
 
 
