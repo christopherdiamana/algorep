@@ -1,6 +1,8 @@
 #include "server.hh"
-
 #include "message.hh"
+
+#include <unistd.h>
+#include <string.h>
 
 
 Server::Server(unsigned long rank, unsigned long size)
@@ -18,22 +20,22 @@ Server::Server(unsigned long rank, unsigned long size)
 {
     setTimeout();
     setLog();
-    LOG(DEBUG) << "server " << rank << "has PID " << getpid();
+    log << "server " << rank << "has PID " << getpid();
 }
 
 void Server::setTimeout(){
   this->timeout = std::rand() % (MAX_TIMEOUT - MIN_TIMEOUT) + MIN_TIMEOUT;
-  this->heartbeatTimeout = INTIAL_HARTBEAT
+  this->heartbeatTimeout = INTIAL_HARTBEAT;
 }
 
 void Server::setLog(){
-  filename = "bin/server_" + std::to_string(rank) + ".log";
+  std::string filename = "bin/server_" + std::to_string(rank) + ".log";
   this->log.open(filename);
 }
 
 void Server::start(){
   if (this->state == Status::Follower)
-    this->toCandidate()
+    this->toCandidate();
 }
 
 
@@ -46,5 +48,5 @@ void Server::toCandidate(){
   int voteCounter = 1;
 
   // Vote request
-  requestVote()
+  requestVote();
 }

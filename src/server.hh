@@ -44,9 +44,9 @@ class Server
         // The index of log entry
         int commitIndex;
         // RAM log storage
-        std::string currentLog
+        std::string currentLog;
         // Storage emplacement in the hard drive.
-        ofstream log;
+        std::ofstream log;
 
         /*** METHODS ***/
 
@@ -56,7 +56,7 @@ class Server
         void toFollower();
         void heartbeat();
         bool requestVote();
-        void setLog()
+        void setLog();
         void setStatus(int statusIndex);
 
 
