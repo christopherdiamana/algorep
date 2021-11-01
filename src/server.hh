@@ -12,7 +12,7 @@ class Server
 {
 
     public:
-        enum Status { Follower, Candidate, Leader };
+        enum class Status { Follower, Candidate, Leader };
         /*** CONSTRUCTOR ***/
         Server(unsigned long rank, unsigned long size);
 
@@ -29,7 +29,7 @@ class Server
         unsigned long rank;
         // Size of the system
         unsigned long size;
-        enum Status { Follower, Candidate, Leader };
+        Status state;
         // Current Epoch
         int currentTerm;
         // The timeout for an epoch
@@ -50,6 +50,7 @@ class Server
 
         /*** METHODS ***/
 
+        void start();
         void toCandidate();
         void toLeader();
         void toFollower();
@@ -57,6 +58,7 @@ class Server
         bool requestVote();
         void setLog()
         void setStatus(int statusIndex);
+
 
 
 };
