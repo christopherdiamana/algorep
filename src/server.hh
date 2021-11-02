@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <vector>
 #include "mpi.h"
 
 #define TIMEOUT 400
@@ -58,7 +59,7 @@ class Server
         // The index of log entry
         int commitIndex;
         // RAM log storage
-        char*** currentLog;
+        std::vector<char*> currentLog;
         // Storage emplacement in the hard drive.
         std::ofstream log;
         // The epochs count
