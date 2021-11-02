@@ -7,18 +7,19 @@
 
 Server::Server(int rank, int size)
   : rank(rank)
-    , size(size)
+    , numberOfNodes(size)
     , state(Status::Follower)
     , currentTerm(0)
-    , timeout()
-    , heartbeatTimeout(50)
+    , timeout(TIMEOUT)
+    , heartbeatTimeout(INTIAL_HEARTBEAT)
     , leaderRank()
     , votedFor()
     , commitIndex()
     , currentLog()
+    , lastTimer(clock())
     , log(Server::setLog())
+    , term(0)
 {
-    setTimeout();
     log << "server " << rank << "has PID " << getpid();
 }
 
@@ -28,8 +29,7 @@ Server::~Server()
 }
 
 void Server::setTimeout(){
-  this->timeout = std::rand() % (MAX_TIMEOUT - MIN_TIMEOUT) + MIN_TIMEOUT;
-  this->heartbeatTimeout = INTIAL_HARTBEAT;
+  this->heartbeatTimeout = INTIAL_HEARTBEAT;
 }
 
 std::ofstream Server::setLog(){
@@ -38,9 +38,41 @@ std::ofstream Server::setLog(){
   return log;
 }
 
-void Server::start(){
+void Server::startElection(){
   if (this->state == Status::Follower)
-    this->toCandidate();
+  {
+    this->term++;
+    this->state = Status::Candidate;
+    this->electionTimeout = std::rand() % (MAX_ELECTION_TIMEOUT - MIN_ELECTION_TIMEOUT) + MIN_ELECTION_TIMEOUT;
+    bool leaderExists = false;
+    int foundRank = -1;
+    while ( lastTimer + electionTimeout > clock() && !leaderExists)
+    {
+      /*** if (receiverOwnerId)
+       *   {
+       *     leaderExists = true;
+       *     foundRank = leaderRank;
+       *   }
+       *   if (winsElection)
+       *   {
+       *     leaderExists = true;
+       *     foundRank = rank;
+       *   }
+       ***/
+
+    }
+    //Election Timeout Scenario
+    if (!leaderExists)
+    {
+      startElection();
+    }
+    else
+    {
+      this->leaderRank = foundRank;
+      this->state = (leaderRank != rank) ? Status::Follower : Status::Leader;
+    }
+  }
+
 }
 
 
@@ -56,8 +88,38 @@ void Server::toCandidate(){
   requestVote();
 }
 
-bool update()
+bool Server::update()
 {
-  //TODO
+  //FIXME
+  while(true)
+  {
+    if (clock() - this->lastTimer > this->timeout)
+    {
+      leaderRank = -1;
+      if (state  == Status::Follower)
+      {
+        startElection();
+      }
+      else
+      {
+
+      }
+    }
+      //TODO
+      /***
+       *  if (Receive Client Info)
+       *  {
+       *     if (leaderRank >= 0)
+       *     {
+       *       SendToLeader
+       *     }
+       *     else
+       *     {
+       *       SendToRandomServer and hope for it to be the new supreme leader
+       *     }
+       *  }
+       *
+       ***/
+  }
   return 0;
 }
