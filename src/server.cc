@@ -178,11 +178,11 @@ void Server::receiveMessage()
           }
           MPI_Send(msg, sizeof(msg)/sizeof(char), MPI_BYTE, realStatus.MPI_SOURCE, term, MPI_COMM_WORLD);
         }
-        else if (buffer == "v_OK")
+        else if (strcmp(buffer, "v_OK") == 0)
         {
           *electionResults[realStatus.MPI_SOURCE] = 2;
         }
-        else if (buffer == "v_NO")
+        else if (strcmp(buffer, "v_NO") == 0)
         {
           *electionResults[realStatus.MPI_SOURCE] = 1;
         }
