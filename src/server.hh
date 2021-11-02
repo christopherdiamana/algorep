@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <fstream>
+#include "mpi.h"
 
 #define MIN_TIMEOUT 100
 #define MAX_TIMEOUT 400
