@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
         }*/
         if (rank < numberOfNode)
         {
-            Server curServer = Server::Server(rank, size);
+            Server curServer = Server::Server(rank, numberOfNode);
             //TODO \o/ curServer do something = ^     D
             while (curServer.update())
             {}
