@@ -14,21 +14,21 @@ class Server
     public:
         enum class Status { Follower, Candidate, Leader };
         /*** CONSTRUCTOR ***/
-        Server(unsigned long rank, unsigned long size);
+        Server(int rank, int size);
 
         /*** METHODS ***/
         bool vote(unsigned long serverRank);
         Status getStatus();
         int getLeader();
         void setTimeout();
+        bool update();
 
 
     private:
         /*** ATTRIBUTES  ***/
-
-        unsigned long rank;
-        // Size of the system
-        unsigned long size;
+        int rank;
+        // Size of the system can't be negative
+        int size;
         Status state;
         // Current Epoch
         int currentTerm;
@@ -37,8 +37,8 @@ class Server
         // The timeout for the hearbeat
         int heartbeatTimeout;
 
-        // 0 signifie aucun leader; Sinon spécifie le rang du leader.
-        unsigned long leaderRank;
+        // Négatif signifie aucun leader; Sinon spécifie le rang du leader.
+        int leaderRank;
 
         int votedFor;
         // The index of log entry
