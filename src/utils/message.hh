@@ -7,8 +7,15 @@ class Message {
 
   public:
     ///Constructor
-    void Message(int from, int dest, int term);
+    Message(int from, int dest, int term);
+    Message(std::string serial_string);
+    ~Message();
 
+    std::string Serialize();
+
+    friend std::ostream& operator << ( std::ostream&, Message& );
+
+  private:
     // Process requesting
     const int from;
     // Process dest
@@ -30,7 +37,14 @@ class RequestVote : public Message {
      */
     ///Constructor
     RequestVote(int from, int dest, int term, int lastLogIndex, int lastLogTerm);
+    RequestVote(std::string serial_string);
+    ~RequestVote();
 
+    std::string Serialize();
+
+    friend std::ostream& operator << ( std::ostream&, Message& );
+
+  private:
     /// index of candidate's last log entry
     const int lastLogIndex;
     /// term of candidate's last log entry
@@ -50,7 +64,14 @@ class ReplyVote : public Message {
      */
      ////Constructor
     ReplyVote(int from, int dest, int term, bool granted);
+    ReplytVote(std::string serial_string);
+    ~ReplyVote();
 
+    std::string Serialize();
+
+    friend std::ostream& operator << ( std::ostream&, Message& );
+
+  private:
     /// true means candidate obtain the vote
     const bool granted;
 };
@@ -67,7 +88,14 @@ class AppendEntriesRequest : public Message {
         int prevTerm,
         std::vector<std::string> entries,
         int commitIndex);
+    AppendEntriesRequest(std::string serial_string);
+    ~AppendEntriesRequest();
 
+    std::string Serialize();
+
+    friend std::ostream& operator << ( std::ostream&, Message& );
+
+  private:
     // index of log entry
     const int prevIndex;
     // Epoch of prevIndex
@@ -82,7 +110,13 @@ class AppendEntriesReply : public Message {
 
   public:
     AppendEntriesReply(int from, int dest, int term, bool success, int matchIndex);
+    AppendEntriesReply(std::string serial_string);
+    ~AppendEntriesReply();
 
+    std::string Serialize();
+    friend std::ostream& operator << ( std::ostream&, Message& );
+
+  private:
     const bool success;
     const int matchIndex;
 }
