@@ -135,10 +135,16 @@ void Server::sendHeartbeat()
 
 void Server::receiveMessage()
 {
+  //Initialise Flag
+  int flag = 0;
   //Initialise Status
   MPI_Status tmpStatus;
   //Probe allows to fake receive the message and fill the status with the source and the tag
-  MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &tmpStatus);
+  MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag,&tmpStatus);
+  if (flag == 0)
+  {
+    return;
+  }
   //MPI_Get_Count allows us to know the len of the message
   int numberAmount = 0;
   MPI_Get_count(&tmpStatus, MPI_BYTE, &numberAmount);
@@ -155,9 +161,7 @@ void Server::receiveMessage()
     {
       state = Status::Follower;
       leaderRank = realStatus.MPI_SOURCE;
-      //Dead code: Should followers answer to the leader? #TODO DISCUSS ME
-      //char *text = "HeartBeat";
-      //MPI_Send(text, sizeof(text)/sizeof(char), MPI_BYTE, leaderRank, -1, MPI_COMM_WORLD);
+      //Should followers answer to the leader? #TODO DISCUSS ME (I think not)
     }
   }
   else if (realStatus.MPI_TAG > 0) //FIXME if TAG happens to be 0 then a term++ is missing in the code;
@@ -165,7 +169,7 @@ void Server::receiveMessage()
     //Vote demande from a server.
     if (strncmp(buffer, "v_", 2) == 0 && realStatus.MPI_SOURCE < numberOfNodes)
     {
-        if (buffer == "v_voteMe") //FIXME is this comparing STRING OR ADRESSES Java C++ diff
+        if (strcmp(buffer, "v_voteMe") == 0)
         {
           char* msg = "v_NO";
           if (realStatus.MPI_TAG >= term)
@@ -259,7 +263,7 @@ void Server::handleRequest(char* buffer, int tag)
   if (state == Status::Leader)
   {
     //Write on server Disc
-    if (term == tag && *currentLog[term] == pureBuffer) //FIXME Check char* comparison in C++ might be like JAVA
+    if (term == tag && strcmp(*currentLog[term], pureBuffer) == 0)
     {
       Server::log << pureBuffer << std::endl;
       lastWrittenTerm++;
@@ -303,25 +307,7 @@ bool Server::update()
     {
       sendHeartbeat();
     }
-    if (false/*FIXME if messages are stored in the MPI buffer */)
-    {
-      receiveMessage();
-    }
-      //TODO
-      /***
-       *  if (Receive Client Info)
-       *  {
-       *     if (leaderRank >= 0)
-       *     {
-       *       SendToLeader
-       *     }
-       *     else
-       *     {
-       *       SendToRandomServer and hope for it to be the new supreme leader
-       *     }
-       *  }
-       *
-       ***/
+    receiveMessage();
   }
   return 0;
 }
