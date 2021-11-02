@@ -16,11 +16,15 @@ Server::Server(int rank, int size)
     , votedFor()
     , commitIndex()
     , currentLog()
-    , log()
+    , log(Server::setLog())
 {
     setTimeout();
-    setLog();
     log << "server " << rank << "has PID " << getpid();
+}
+
+Server::~Server()
+{
+  log.close();
 }
 
 void Server::setTimeout(){
@@ -28,9 +32,10 @@ void Server::setTimeout(){
   this->heartbeatTimeout = INTIAL_HARTBEAT;
 }
 
-void Server::setLog(){
-  std::string filename = "bin/server_" + std::to_string(rank) + ".log";
-  this->log.open(filename);
+std::ofstream Server::setLog(){
+  const std::string filename = "Logs/server_" + std::to_string(rank) + ".txt";
+  std::ofstream log(filename.c_str(), std::ofstream::out | std::ofstream::app);
+  return log;
 }
 
 void Server::start(){
