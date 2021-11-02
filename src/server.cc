@@ -59,7 +59,6 @@ void Server::startElection(){
        *     foundRank = rank;
        *   }
        ***/
-
     }
     //Election Timeout Scenario
     if (!leaderExists)
@@ -88,6 +87,111 @@ void Server::toCandidate(){
   requestVote();
 }
 
+//Sending Heartbeat function for the leader !!!DO NOT USE WITH A FOLLOWER!
+void Server::sendHeartbeat()
+{
+  //redundant but just in case you decide to ignore the previous comment.
+  if (state == Status::Leader)
+  {
+    //Send an heartbeat to every Node except hisself
+    for (int i = 0; i < Server::numberOfNodes; i++)
+    {
+      if (i == rank)
+      {
+        continue;
+      }
+      char *text = "HeartBeat";
+      MPI_Send(text, sizeof(text)/sizeof(char), MPI_BYTE, i, -1 * term, MPI_COMM_WORLD);
+    }
+  }
+}
+
+void Server::receiveMessage()
+{
+  //Initialise Status
+  MPI_Status tmpStatus;
+  //Probe allows to fake receive the message and fill the status with the source and the tag
+  MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &tmpStatus);
+  //MPI_Get_Count allows us to know the len of the message
+  int numberAmount = 0;
+  MPI_Get_count(&tmpStatus, MPI_BYTE, &numberAmount);
+  //Create buffer to store in-coming data
+  char buffer[numberAmount];
+  //Create new Status (pretty sure overwriting the probe one would be good aswell)
+  MPI_Status realStatus;
+  //Receive the message who was scouted
+  MPI_Recv(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, tmpStatus.MPI_SOURCE, tmpStatus.MPI_TAG, MPI_COMM_WORLD, &realStatus);
+  if (realStatus.MPI_TAG < 0)
+  {
+    if (term <= realStatus.MPI_TAG * -1)
+    {
+      state = Status::Follower;
+      leaderRank = realStatus.MPI_SOURCE;
+      //Dead code: Should followers answer to the leader? #TODO DISCUSS ME
+      //char *text = "HeartBeat";
+      //MPI_Send(text, sizeof(text)/sizeof(char), MPI_BYTE, leaderRank, -1, MPI_COMM_WORLD);
+    }
+  }
+  else if (realStatus.MPI_TAG > 0) //FIXME if TAG happens to be 0 then a term++ is missing in the code;
+  {
+    //Vote demande from a server.
+    if (strncmp(buffer, "v_", 2) == 0 && realStatus.MPI_SOURCE < numberOfNodes)
+    {
+
+    }
+    //Demande Client originale ou relayée.
+    else if (realStatus.MPI_SOURCE >= numberOfNodes || strncmp(buffer, "r_", 2) == 0)
+    {
+      if (strncmp(buffer, "v_", 2) != 0)
+      {
+        char newBuffer[strlen(buffer) + 3] = "v_";
+        strcat(newBuffer, buffer);
+        //Use newBuffer to send Msg
+        Server::handleRequest(newBuffer, realStatus.MPI_TAG);
+      }
+      else
+      {
+        Server::handleRequest(buffer, realStatus.MPI_TAG);
+      }
+    }
+    //Reception d'une demande d'append Entry par le leader.
+    if (strncmp(buffer, "A_", 2) == 0 && realStatus.MPI_SOURCE == leaderRank)
+    {
+      //Remove the "A_" tag and write it on the disc
+      char* logText = buffer + 2;
+      Server::log << logText << std::endl;
+      term++;
+    }
+  }
+
+}
+
+void Server::handleRequest(char* buffer, int tag)
+{
+  //1 Est ce déjà en Ram si oui => 4 sinon => 2
+
+  //2 Mettre en RAM => 3
+
+  //3 Envoyez à tous les nodes et préparer un tableau de retour sinon
+  if (state == Status::Leader)
+  {
+    for (int i = 0; i < Server::numberOfNodes; i++)
+    {
+      if (i == rank)
+      {
+        continue;
+      }
+
+      MPI_Send(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
+    }
+  }
+  //préparer un tableau de retour
+
+  //4 Remplir le tableau de retour jusqu'à majorité.
+
+  //Si majorité atteinte envoi d'append Entry plus écriture sur disque SINON SI pas de changement de leader mise en place du rollback
+}
+
 bool Server::update()
 {
   //FIXME
@@ -104,6 +208,17 @@ bool Server::update()
       {
 
       }
+    }
+    else if (state == Status::Leader)
+    {
+      if (clock() - this->lastTimer > this->timeout)
+      {
+        sendHeartbeat();
+      }
+    }
+    else
+    {
+
     }
       //TODO
       /***
