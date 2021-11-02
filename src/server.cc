@@ -3,7 +3,7 @@
 
 #include <unistd.h>
 #include <string.h>
-
+#include <cstdlib>
 
 Server::Server(int rank, int size)
   : rank(rank)
@@ -11,7 +11,7 @@ Server::Server(int rank, int size)
     , state(Status::Follower)
     , currentTerm(0)
     , timeout(TIMEOUT)
-    , heartbeatTimeout(INTIAL_HEARTBEAT)
+    , heartbeatTimeout(INITIAL_HEARTBEAT)
     , leaderRank()
     , votedFor()
     , commitIndex()
@@ -21,15 +21,28 @@ Server::Server(int rank, int size)
     , term(0)
 {
     log << "server " << rank << "has PID " << getpid();
+    char electionResults[size];
+    for (int i; i < size; i++)
+    {
+      electionResults[i] = 0;
+    }
+
+    majorityResults[size];
+    for (int i = 0; i < size; i++)
+    {
+      majorityResults[i] = 0;
+    }
+    //currentLog = malloc(sizeof(char *)); Might need to alloc some dynamic space to currentLog
 }
 
 Server::~Server()
 {
   log.close();
+  //if currentLog is allocated we might need to free curretLog on destruction.
 }
 
 void Server::setTimeout(){
-  this->heartbeatTimeout = INTIAL_HEARTBEAT;
+  this->heartbeatTimeout = INITIAL_HEARTBEAT;
 }
 
 std::ofstream Server::setLog(){
@@ -45,20 +58,34 @@ void Server::startElection(){
     this->state = Status::Candidate;
     this->electionTimeout = std::rand() % (MAX_ELECTION_TIMEOUT - MIN_ELECTION_TIMEOUT) + MIN_ELECTION_TIMEOUT;
     bool leaderExists = false;
-    int foundRank = -1;
+    int leaderRank = -1;
+    lastTimer = clock();
     while ( lastTimer + electionTimeout > clock() && !leaderExists)
     {
-      /*** if (receiverOwnerId)
-       *   {
-       *     leaderExists = true;
-       *     foundRank = leaderRank;
-       *   }
-       *   if (winsElection)
-       *   {
-       *     leaderExists = true;
-       *     foundRank = rank;
-       *   }
-       ***/
+      if (leaderRank != -1)
+      {
+        leaderExists = true;
+      }
+
+      receiveMessage();
+
+      int yesBallots = 0;
+      int noBallots = 0;
+      for (int i = 0; i < numberOfNodes;i++)
+      {
+        yesBallots += (electionResults[i] == 2) ? 1 : 0;
+        noBallots += (electionResults[i] == 1) ? 1 : 0;
+        if (yesBallots > numberOfNodes / 2)
+        {
+          leaderRank = rank;
+          leaderExists = true;
+          break;
+        }
+        if (noBallots > numberOfNodes / 2)
+        {
+          break;
+        }
+      }
     }
     //Election Timeout Scenario
     if (!leaderExists)
@@ -67,7 +94,6 @@ void Server::startElection(){
     }
     else
     {
-      this->leaderRank = foundRank;
       this->state = (leaderRank != rank) ? Status::Follower : Status::Leader;
     }
   }
@@ -93,6 +119,7 @@ void Server::sendHeartbeat()
   //redundant but just in case you decide to ignore the previous comment.
   if (state == Status::Leader)
   {
+    lastTimer = clock();
     //Send an heartbeat to every Node except hisself
     for (int i = 0; i < Server::numberOfNodes; i++)
     {
@@ -121,6 +148,7 @@ void Server::receiveMessage()
   MPI_Status realStatus;
   //Receive the message who was scouted
   MPI_Recv(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, tmpStatus.MPI_SOURCE, tmpStatus.MPI_TAG, MPI_COMM_WORLD, &realStatus);
+  lastTimer = clock();
   if (realStatus.MPI_TAG < 0)
   {
     if (term <= realStatus.MPI_TAG * -1)
@@ -137,6 +165,27 @@ void Server::receiveMessage()
     //Vote demande from a server.
     if (strncmp(buffer, "v_", 2) == 0 && realStatus.MPI_SOURCE < numberOfNodes)
     {
+        if (buffer == "v_voteMe") //FIXME is this comparing STRING OR ADRESSES Java C++ diff
+        {
+          char* msg = "v_NO";
+          if (realStatus.MPI_TAG >= term)
+          {
+            msg = "v_OK";
+          }
+          MPI_Send(msg, sizeof(msg)/sizeof(char), MPI_BYTE, realStatus.MPI_SOURCE, term, MPI_COMM_WORLD);
+        }
+        else if (buffer == "v_OK")
+        {
+          electionResults[realStatus.MPI_SOURCE] = 2;
+        }
+        else if (buffer == "v_NO")
+        {
+          electionResults[realStatus.MPI_SOURCE] = 1;
+        }
+        else
+        {
+          std::cerr<< "Messager eceived with the wrong format"<<std::endl;
+        }
 
     }
     //Demande Client originale ou relayée.
@@ -160,6 +209,7 @@ void Server::receiveMessage()
       //Remove the "A_" tag and write it on the disc
       char* logText = buffer + 2;
       Server::log << logText << std::endl;
+      lastWrittenTerm++;
       term++;
     }
   }
@@ -169,14 +219,30 @@ void Server::receiveMessage()
 void Server::handleRequest(char* buffer, int tag)
 {
   //1 Est ce déjà en Ram si oui => 4 sinon => 2
+  bool existInRam = false;
+  char* pureBuffer = buffer+2;
+  for (int i = lastWrittenTerm; i < term; i++)
+  {
+    if (currentLog[tag] != pureBuffer)
+    {
+      existInRam = true;
+      break;
+    }
+  }
+  if (existInRam)
+  {
+    //2 Mettre en RAM => 3
+    currentLog[term] = pureBuffer;
+    term++;
+  }
 
-  //2 Mettre en RAM => 3
 
   //3 Envoyez à tous les nodes et préparer un tableau de retour sinon
   if (state == Status::Leader)
   {
     for (int i = 0; i < Server::numberOfNodes; i++)
     {
+      majorityResults[i] = 0;
       if (i == rank)
       {
         continue;
@@ -185,11 +251,42 @@ void Server::handleRequest(char* buffer, int tag)
       MPI_Send(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
     }
   }
-  //préparer un tableau de retour
 
   //4 Remplir le tableau de retour jusqu'à majorité.
 
+
   //Si majorité atteinte envoi d'append Entry plus écriture sur disque SINON SI pas de changement de leader mise en place du rollback
+  if (state == Status::Leader)
+  {
+    //Write on server Disc
+    if (term == tag && currentLog[term] == pureBuffer) //FIXME Check char* comparison in C++ might be like JAVA
+    {
+      Server::log << pureBuffer << std::endl;
+      lastWrittenTerm++;
+    }
+    else
+    {
+      //TODO INITIATE CLEVER ROLLBACK. !!!!! Will impact MPI_send. [Don't forget to increment termof Leader]
+    }
+
+    //Propagate append Entry to other nodes.
+    lastTimer = clock();
+    //Send an heartbeat to every Node except hisself
+    for (int i = 0; i < Server::numberOfNodes; i++)
+    {
+      if (i == rank)
+      {
+        continue;
+      }
+      char text[strlen(pureBuffer + 3)] = "A_";
+      strcat(text, pureBuffer);
+      MPI_Send(text, sizeof(text)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
+      term++;
+    }
+  }
+}
+
+void Server::receiveMessage()
 }
 
 bool Server::update()
@@ -197,28 +294,21 @@ bool Server::update()
   //FIXME
   while(true)
   {
-    if (clock() - this->lastTimer > this->timeout)
+    if (state != Status::Leader && clock() - this->lastTimer > this->timeout)
     {
       leaderRank = -1;
       if (state  == Status::Follower)
       {
         startElection();
       }
-      else
-      {
-
-      }
     }
-    else if (state == Status::Leader)
+    if (state == Status::Leader && clock() - this->lastTimer > INITIAL_HEARTBEAT)
     {
-      if (clock() - this->lastTimer > this->timeout)
-      {
-        sendHeartbeat();
-      }
+      sendHeartbeat();
     }
-    else
+    if (false/*FIXME if messages are stored in the MPI buffer */)
     {
-
+      receiveMessage();
     }
       //TODO
       /***
