@@ -2,11 +2,13 @@
 
 #include <iostream>
 #include <fstream>
+#include <chrono>
 #include "mpi.h"
 
-#define MIN_TIMEOUT 100
-#define MAX_TIMEOUT 400
-#define INTIAL_HARTBEAT 50
+#define TIMEOUT 400
+#define INTIAL_HEARTBEAT 75
+#define MIN_ELECTION_TIMEOUT 500
+#define MAX_ELECTION_TIMEOUT 1000
 
 
 class Server
@@ -15,7 +17,7 @@ class Server
     public:
         enum class Status { Follower, Candidate, Leader };
         /*** CONSTRUCTOR ***/
-        Server(int rank, int size);
+        Server(int rank, int numberOfNodes);
 
         /*** DESTRUCTOR ***/
         ~Server();
@@ -32,7 +34,8 @@ class Server
         /*** ATTRIBUTES  ***/
         int rank;
         // Size of the system can't be negative
-        int size;
+        int numberOfNodes;
+        //
         Status state;
         // Current Epoch
         int currentTerm;
@@ -40,9 +43,14 @@ class Server
         int timeout;
         // The timeout for the hearbeat
         int heartbeatTimeout;
+        // The timeout for election
+        int electionTimeout;
 
         // Négatif signifie aucun leader; Sinon spécifie le rang du leader.
         int leaderRank;
+
+        //
+        clock_t lastTimer;
 
         int votedFor;
         // The index of log entry
@@ -51,10 +59,12 @@ class Server
         std::string currentLog;
         // Storage emplacement in the hard drive.
         std::ofstream log;
+        // The epochs count
+        unsigned long term;
 
         /*** METHODS ***/
 
-        void start();
+        void startElection();
         void toCandidate();
         void toLeader();
         void toFollower();
