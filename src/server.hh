@@ -16,6 +16,9 @@ class Server
         /*** CONSTRUCTOR ***/
         Server(int rank, int size);
 
+        /*** DESTRUCTOR ***/
+        ~Server();
+
         /*** METHODS ***/
         bool vote(unsigned long serverRank);
         Status getStatus();
@@ -56,7 +59,7 @@ class Server
         void toFollower();
         void heartbeat();
         bool requestVote();
-        void setLog();
+        std::ofstream setLog();
         void setStatus(int statusIndex);
 
 
