@@ -32,7 +32,6 @@ Server::Server(int rank, int size)
     {
       *majorityResults[i] = 0;
     }
-    currentLog[3000][100000000];
 }
 
 Server::~Server()
@@ -59,6 +58,17 @@ void Server::startElection(){
     this->electionTimeout = std::rand() % (MAX_ELECTION_TIMEOUT - MIN_ELECTION_TIMEOUT) + MIN_ELECTION_TIMEOUT;
     bool leaderExists = false;
     int leaderRank = -1;
+
+    char *text = "v_voteMe";
+    for (int i = 0; i < Server::numberOfNodes; i++)
+    {
+      if (i == rank)
+      {
+        continue;
+      }
+      MPI_Send(text, sizeof(text)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
+    }
+
     lastTimer = clock();
     while ( lastTimer + electionTimeout > clock() && !leaderExists)
     {
@@ -195,9 +205,9 @@ void Server::receiveMessage()
     //Demande Client originale ou relayée.
     else if (realStatus.MPI_SOURCE >= numberOfNodes || strncmp(buffer, "r_", 2) == 0)
     {
-      if (strncmp(buffer, "v_", 2) != 0)
+      if (strncmp(buffer, "r_", 2) != 0)
       {
-        char newBuffer[strlen(buffer) + 3] = "v_";
+        char newBuffer[strlen(buffer) + 3] = "r_";
         strcat(newBuffer, buffer);
         //Use newBuffer to send Msg
         Server::handleRequest(newBuffer, realStatus.MPI_TAG);
@@ -227,22 +237,22 @@ void Server::handleRequest(char* buffer, int tag)
   char* pureBuffer = buffer+2;
   for (int i = lastWrittenTerm; i < term; i++)
   {
-    if (*currentLog[tag] != pureBuffer)
+    if (currentLog.at(tag) != pureBuffer)
     {
       existInRam = true;
       break;
     }
   }
-  if (existInRam)
+  if (!existInRam)
   {
     //2 Mettre en RAM => 3
-    *currentLog[term] = pureBuffer;
+    currentLog.push_back(std::move(pureBuffer));
     term++;
   }
 
 
   //3 Envoyez à tous les nodes et préparer un tableau de retour sinon
-  if (state == Status::Leader)
+  if (term == tag && state == Status::Leader)
   {
     for (int i = 0; i < Server::numberOfNodes; i++)
     {
@@ -255,38 +265,59 @@ void Server::handleRequest(char* buffer, int tag)
       MPI_Send(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
     }
   }
-
-  //4 Remplir le tableau de retour jusqu'à majorité.
-
-
-  //Si majorité atteinte envoi d'append Entry plus écriture sur disque SINON SI pas de changement de leader mise en place du rollback
-  if (state == Status::Leader)
+  else if (tag < term && state == Status::Leader)
   {
-    //Write on server Disc
-    if (term == tag && strcmp(*currentLog[term], pureBuffer) == 0)
-    {
-      Server::log << pureBuffer << std::endl;
-      lastWrittenTerm++;
-    }
-    else
-    {
-      //TODO INITIATE CLEVER ROLLBACK. !!!!! Will impact MPI_send. [Don't forget to increment termof Leader]
-    }
+    int agreed = 0;
+    int denied = 0;
+    *majorityResults[tag] = strcmp(buffer, "r_agreed") ? 2 : 1;
 
-    //Propagate append Entry to other nodes.
-    lastTimer = clock();
-    //Send an heartbeat to every Node except hisself
-    for (int i = 0; i < Server::numberOfNodes; i++)
+    for (int i = 0; i < numberOfNodes;i++)
     {
-      if (i == rank)
+      yesBallots += (*majorityResults[i] == 2) ? 1 : 0;
+      noBallots += (*majorityResults[i] == 1) ? 1 : 0;
+      if (yesBallots > numberOfNodes / 2)
       {
-        continue;
+        char toSend[strlen(pureBuffer) + 3] = "A_";
+        strcat(toSend, pureBuffer);
+        term++;
+        for (int i = 0; i < Server::numberOfNodes; i++)
+        {
+          majorityResults[i] = 0;
+          if (i == rank)
+          {
+            continue;
+          }
+
+          MPI_Send(toSend, sizeof(toSend)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
+        }
+        //Envoi d'append Entry plus écriture sur disque
+        if (state == Status::Leader)
+        {
+          //Write on server Disc
+          if (term == tag && strcmp(currentLog.at(term), pureBuffer) == 0)
+          {
+            Server::log << pureBuffer << std::endl;
+            lastWrittenTerm++;
+          }
+          else
+          {
+            //TODO INITIATE CLEVER ROLLBACK. !!!!! Will impact MPI_send. [Don't forget to increment termof Leader]
+          }
+
+          //Propagate append Entry to other nodes.
+          lastTimer = clock();
+          //Send an heartbeat to every Node except hisself
+        }
       }
-      char text[strlen(pureBuffer + 3)] = "A_";
-      strcat(text, pureBuffer);
-      MPI_Send(text, sizeof(text)/sizeof(char), MPI_BYTE, i, term, MPI_COMM_WORLD);
-      term++;
     }
+  }
+  else if (leaderRank < 0)
+  {
+    MPI_Send(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, leaderRank, term, MPI_COMM_WORLD);
+  }
+  else
+  {
+    MPI_Send(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, leaderRank, std::rand()%numberOfNodes, MPI_COMM_WORLD);
   }
 }
 
