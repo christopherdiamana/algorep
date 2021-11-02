@@ -6,7 +6,7 @@
 #include "mpi.h"
 
 #define TIMEOUT 400
-#define INTIAL_HEARTBEAT 70
+#define INITIAL_HEARTBEAT 70
 #define MIN_ELECTION_TIMEOUT 500
 #define MAX_ELECTION_TIMEOUT 1000
 
@@ -39,6 +39,8 @@ class Server
         Status state;
         // Current Epoch
         int currentTerm;
+        //Last Term in which the log got written on the disc.
+        int lastWrittenTerm;
         // The timeout for an epoch
         int timeout;
         // The timeout for the hearbeat
@@ -52,16 +54,21 @@ class Server
         //Chronometer to check timeouts
         clock_t lastTimer;
 
-
         int votedFor;
         // The index of log entry
         int commitIndex;
         // RAM log storage
-        std::string currentLog;
+        const char currentLog[256][256];
         // Storage emplacement in the hard drive.
         std::ofstream log;
         // The epochs count
         unsigned long term;
+        // Store OnGoing ElectionResults, 0 = Not Answered yet, 1 = Vote no, 2 = Vote yes
+        char electionResults[];
+        // Store majority proportion to trigger AppendEntry. 0 = Not Answered yet, 1 = Vote no, 2 = Vote yes
+        char majorityResults[];
+
+
 
         /*** METHODS ***/
 
