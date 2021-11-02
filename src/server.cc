@@ -5,7 +5,7 @@
 #include <string.h>
 
 
-Server::Server(unsigned long rank, unsigned long size)
+Server::Server(int rank, int size)
   : rank(rank)
     , size(size)
     , state(Status::Follower)
@@ -49,4 +49,10 @@ void Server::toCandidate(){
 
   // Vote request
   requestVote();
+}
+
+bool update()
+{
+  //TODO
+  return 0;
 }
