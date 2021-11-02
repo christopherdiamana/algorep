@@ -21,18 +21,18 @@ Server::Server(int rank, int size)
     , term(0)
 {
     log << "server " << rank << "has PID " << getpid();
-    char electionResults[size];
+    electionResults[size];
     for (int i; i < size; i++)
     {
-      electionResults[i] = 0;
+     *electionResults[i] = 0;
     }
 
-    majorityResults[size];
+    *majorityResults[size];
     for (int i = 0; i < size; i++)
     {
-      majorityResults[i] = 0;
+      *majorityResults[i] = 0;
     }
-    //currentLog = malloc(sizeof(char *)); Might need to alloc some dynamic space to currentLog
+    currentLog[3000][100000000];
 }
 
 Server::~Server()
@@ -73,8 +73,8 @@ void Server::startElection(){
       int noBallots = 0;
       for (int i = 0; i < numberOfNodes;i++)
       {
-        yesBallots += (electionResults[i] == 2) ? 1 : 0;
-        noBallots += (electionResults[i] == 1) ? 1 : 0;
+        yesBallots += (*electionResults[i] == 2) ? 1 : 0;
+        noBallots += (*electionResults[i] == 1) ? 1 : 0;
         if (yesBallots > numberOfNodes / 2)
         {
           leaderRank = rank;
@@ -176,11 +176,11 @@ void Server::receiveMessage()
         }
         else if (buffer == "v_OK")
         {
-          electionResults[realStatus.MPI_SOURCE] = 2;
+          *electionResults[realStatus.MPI_SOURCE] = 2;
         }
         else if (buffer == "v_NO")
         {
-          electionResults[realStatus.MPI_SOURCE] = 1;
+          *electionResults[realStatus.MPI_SOURCE] = 1;
         }
         else
         {
@@ -223,7 +223,7 @@ void Server::handleRequest(char* buffer, int tag)
   char* pureBuffer = buffer+2;
   for (int i = lastWrittenTerm; i < term; i++)
   {
-    if (currentLog[tag] != pureBuffer)
+    if (*currentLog[tag] != pureBuffer)
     {
       existInRam = true;
       break;
@@ -232,7 +232,7 @@ void Server::handleRequest(char* buffer, int tag)
   if (existInRam)
   {
     //2 Mettre en RAM => 3
-    currentLog[term] = pureBuffer;
+    *currentLog[term] = pureBuffer;
     term++;
   }
 
@@ -259,7 +259,7 @@ void Server::handleRequest(char* buffer, int tag)
   if (state == Status::Leader)
   {
     //Write on server Disc
-    if (term == tag && currentLog[term] == pureBuffer) //FIXME Check char* comparison in C++ might be like JAVA
+    if (term == tag && *currentLog[term] == pureBuffer) //FIXME Check char* comparison in C++ might be like JAVA
     {
       Server::log << pureBuffer << std::endl;
       lastWrittenTerm++;
@@ -284,9 +284,6 @@ void Server::handleRequest(char* buffer, int tag)
       term++;
     }
   }
-}
-
-void Server::receiveMessage()
 }
 
 bool Server::update()

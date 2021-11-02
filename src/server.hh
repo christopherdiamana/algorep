@@ -58,16 +58,15 @@ class Server
         // The index of log entry
         int commitIndex;
         // RAM log storage
-        const char currentLog[256][256];
+        char*** currentLog;
         // Storage emplacement in the hard drive.
         std::ofstream log;
         // The epochs count
         unsigned long term;
         // Store OnGoing ElectionResults, 0 = Not Answered yet, 1 = Vote no, 2 = Vote yes
-        char electionResults[];
+        int** electionResults;
         // Store majority proportion to trigger AppendEntry. 0 = Not Answered yet, 1 = Vote no, 2 = Vote yes
-        char majorityResults[];
-
+        int** majorityResults;
 
 
         /*** METHODS ***/
