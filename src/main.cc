@@ -35,34 +35,30 @@ int main(int argc, char* argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    //Split processes and avoid incoherences
+    //Additionnal processes go Idle
     if (rank >= size)
     {
-        //Si ce code s'execute alors je comprends plus rien.
-        std::cerr<<"Rank can't be greater than size!"<<std::endl;
-        return 1;
-    }
-
-
-    std::cout<<rank;
-    /*if (rank == 0)
-    {
-        std::cout<<"Insérez entrée utilisateur:"<<std::endl;
-        char* test = "";
-        std::cin>> test;
-        std::cout<<"You entered: "<< test <<std::edl;
-    }*/
-    if (rank < numberOfNode)
-    {
-        Server curServer = Server::Server(rank, size);
-        //TODO \o/ curServer do something = ^     D
-        while (curServer.update())
-        {}
-    }
-    if (rank >= numberOfNode)
-    {
-        Client curClient = Client::Client(rank, size);
-        //TODO curClient ¯\_(ツ)_/¯ ??
+    //Split processes
+        std::cout<<rank;
+        /*if (rank == 0)
+        {
+            std::cout<<"Insérez entrée utilisateur:"<<std::endl;
+            char* test = "";
+            std::cin>> test;
+            std::cout<<"You entered: "<< test <<std::edl;
+        }*/
+        if (rank < numberOfNode)
+        {
+            Server curServer = Server::Server(rank, size);
+            //TODO \o/ curServer do something = ^     D
+            while (curServer.update())
+            {}
+        }
+        if (rank >= numberOfNode)
+        {
+            Client curClient = Client::Client(rank, size);
+            //TODO curClient ¯\_(ツ)_/¯ ??
+        }
     }
 
 
