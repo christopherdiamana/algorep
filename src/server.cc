@@ -19,6 +19,7 @@ Server::Server(int rank, int size)
     , lastTimer(clock())
     , log(Server::setLog())
     , term(0)
+    , waiting(false)
 {
     log << "server " << rank << "has PID " << getpid();
     electionResults[size];
@@ -254,6 +255,7 @@ void Server::handleRequest(char* buffer, int tag)
   //3 Envoyez à tous les nodes et préparer un tableau de retour sinon
   if (term == tag && state == Status::Leader)
   {
+    waiting = true;
     for (int i = 0; i < Server::numberOfNodes; i++)
     {
       majorityResults[i] = 0;
@@ -277,6 +279,7 @@ void Server::handleRequest(char* buffer, int tag)
       noBallots += (*majorityResults[i] == 1) ? 1 : 0;
       if (yesBallots > numberOfNodes / 2)
       {
+        waiting = false;
         char toSend[strlen(pureBuffer) + 3] = "A_";
         strcat(toSend, pureBuffer);
         term++;
@@ -339,6 +342,21 @@ bool Server::update()
       sendHeartbeat();
     }
     receiveMessage();
+    if (!waiting && state == Status::Leader)
+    {
+      waiting = true;
+      char* buffer= currentLog[lastWrittenTerm + 1];
+      for (int i = 0; i < Server::numberOfNodes; i++)
+      {
+        majorityResults[i] = 0;
+        if (i == rank)
+        {
+          continue;
+        }
+
+        MPI_Send(buffer, sizeof(buffer)/sizeof(char), MPI_BYTE, i, lastWrittenTerm + 1, MPI_COMM_WORLD);
+      }
+    }
   }
   return 0;
 }

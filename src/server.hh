@@ -68,6 +68,8 @@ class Server
         int** electionResults;
         // Store majority proportion to trigger AppendEntry. 0 = Not Answered yet, 1 = Vote no, 2 = Vote yes
         int** majorityResults;
+        //Is Waiting for responses
+        bool waiting;
 
 
         /*** METHODS ***/
