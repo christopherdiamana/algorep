@@ -6,7 +6,7 @@
 #include "mpi.h"
 
 #define TIMEOUT 400
-#define INTIAL_HEARTBEAT 75
+#define INTIAL_HEARTBEAT 70
 #define MIN_ELECTION_TIMEOUT 500
 #define MAX_ELECTION_TIMEOUT 1000
 
@@ -49,8 +49,9 @@ class Server
         // Négatif signifie aucun leader; Sinon spécifie le rang du leader.
         int leaderRank;
 
-        //
+        //Chronometer to check timeouts
         clock_t lastTimer;
+
 
         int votedFor;
         // The index of log entry
@@ -68,10 +69,12 @@ class Server
         void toCandidate();
         void toLeader();
         void toFollower();
-        void heartbeat();
+        void sendHeartbeat();
         bool requestVote();
         std::ofstream setLog();
         void setStatus(int statusIndex);
+        void receiveMessage();
+        void Server::handleRequest(char* buffer, int tag);
 
 
 
