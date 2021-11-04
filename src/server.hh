@@ -84,6 +84,10 @@ class Server
         void setStatus(int statusIndex);
         void receiveMessage();
         void Server::handleRequest(char* buffer, int tag);
+        void Server::receiveHeartbeat(MPI_Status realStatus);
+        void Server::receiveHeartbeat(MPI_Status realStatus, char* buffer);
+        void Server::receiveAppendEntry(MPI_Status realStatus, char* buffer);
+        void Server::receiveRequest(MPI_Status realStatus, char* buffer);
 
 
 

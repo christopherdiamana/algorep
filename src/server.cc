@@ -144,6 +144,69 @@ void Server::sendHeartbeat()
   }
 }
 
+void Server::receiveHeartbeat(MPI_Status realStatus)
+{
+    if (term <= realStatus.MPI_TAG * -1)
+    {
+      state = Status::Follower;
+      leaderRank = realStatus.MPI_SOURCE;
+      //Should followers answer to the leader? #TODO DISCUSS ME (I think not)
+    }
+    return;
+}
+
+
+void Server::receiveHeartbeat(MPI_Status realStatus, char* buffer)
+{
+  if (strcmp(buffer, "v_voteMe") == 0)
+  {
+    char* msg = "v_NO";
+    if (realStatus.MPI_TAG >= term)
+    {
+      msg = "v_OK";
+    }
+    MPI_Send(msg, sizeof(msg)/sizeof(char), MPI_BYTE, realStatus.MPI_SOURCE, term, MPI_COMM_WORLD);
+  }
+  else if (strcmp(buffer, "v_OK") == 0)
+  {
+    *electionResults[realStatus.MPI_SOURCE] = 2;
+  }
+  else if (strcmp(buffer, "v_NO") == 0)
+  {
+    *electionResults[realStatus.MPI_SOURCE] = 1;
+  }
+  else
+  {
+    std::cerr<< "Messager eceived with the wrong format"<<std::endl;
+  }
+
+}
+
+void Server::receiveRequest(MPI_Status realStatus, char* buffer)
+{
+  if (strncmp(buffer, "r_", 2) != 0)
+  {
+    char newBuffer[strlen(buffer) + 3] = "r_";
+    strcat(newBuffer, buffer);
+    //Use newBuffer to send Msg
+    Server::handleRequest(newBuffer, realStatus.MPI_TAG);
+  }
+  else
+  {
+    Server::handleRequest(buffer, realStatus.MPI_TAG);
+  }
+}
+
+void Server::receiveAppendEntry(MPI_Status realStatus, char* buffer)
+//Reception d'une demande d'append Entry par le leader.
+{
+    //Remove the "A_" tag and write it on the disc
+    char* logText = buffer + 2;
+    Server::log << logText << std::endl;
+    lastWrittenTerm++;
+    term++;
+}
+
 void Server::receiveMessage()
 {
   //Initialise Flag
@@ -168,67 +231,25 @@ void Server::receiveMessage()
   lastTimer = clock();
   if (realStatus.MPI_TAG < 0)
   {
-    if (term <= realStatus.MPI_TAG * -1)
-    {
-      state = Status::Follower;
-      leaderRank = realStatus.MPI_SOURCE;
-      //Should followers answer to the leader? #TODO DISCUSS ME (I think not)
-    }
+    receiveHeartbeat(realStatus);
   }
   else if (realStatus.MPI_TAG > 0) //FIXME if TAG happens to be 0 then a term++ is missing in the code;
   {
     //Vote demande from a server.
     if (strncmp(buffer, "v_", 2) == 0 && realStatus.MPI_SOURCE < numberOfNodes)
     {
-        if (strcmp(buffer, "v_voteMe") == 0)
-        {
-          char* msg = "v_NO";
-          if (realStatus.MPI_TAG >= term)
-          {
-            msg = "v_OK";
-          }
-          MPI_Send(msg, sizeof(msg)/sizeof(char), MPI_BYTE, realStatus.MPI_SOURCE, term, MPI_COMM_WORLD);
-        }
-        else if (strcmp(buffer, "v_OK") == 0)
-        {
-          *electionResults[realStatus.MPI_SOURCE] = 2;
-        }
-        else if (strcmp(buffer, "v_NO") == 0)
-        {
-          *electionResults[realStatus.MPI_SOURCE] = 1;
-        }
-        else
-        {
-          std::cerr<< "Messager eceived with the wrong format"<<std::endl;
-        }
-
+      receiveHeartbeat(realStatus, buffer);
     }
     //Demande Client originale ou relayée.
     else if (realStatus.MPI_SOURCE >= numberOfNodes || strncmp(buffer, "r_", 2) == 0)
     {
-      if (strncmp(buffer, "r_", 2) != 0)
-      {
-        char newBuffer[strlen(buffer) + 3] = "r_";
-        strcat(newBuffer, buffer);
-        //Use newBuffer to send Msg
-        Server::handleRequest(newBuffer, realStatus.MPI_TAG);
-      }
-      else
-      {
-        Server::handleRequest(buffer, realStatus.MPI_TAG);
-      }
+      receiveRequest(realStatus, buffer);
     }
-    //Reception d'une demande d'append Entry par le leader.
     if (strncmp(buffer, "A_", 2) == 0 && realStatus.MPI_SOURCE == leaderRank)
     {
-      //Remove the "A_" tag and write it on the disc
-      char* logText = buffer + 2;
-      Server::log << logText << std::endl;
-      lastWrittenTerm++;
-      term++;
+      receiveAppendEntry(realStatus, buffer);
     }
   }
-
 }
 
 void Server::handleRequest(char* buffer, int tag)
@@ -360,3 +381,4 @@ bool Server::update()
   }
   return 0;
 }
+
